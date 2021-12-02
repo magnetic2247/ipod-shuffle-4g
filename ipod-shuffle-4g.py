@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 # Builtin libraries
 import sys
 import struct
@@ -101,39 +100,14 @@ class Text2Speech(object):
 
     @staticmethod
     def check_support():
-        voiceoverAvailable = False
-
-        # Check for macOS say voiceover
-        if not exec_exists_in_path("say"):
+        # Check for festival
+        if not exec_exists_in_path("text2wave"):
             Text2Speech.valid_tts['say'] = False
-            print("Warning: macOS say not found, voicever won't be generated using it.")
+            print("Warning: festival not found, voicever won't be generated using it.")
         else:
-            voiceoverAvailable = True
+            return True
 
-        # Check for pico2wave voiceover
-        if not exec_exists_in_path("pico2wave"):
-            Text2Speech.valid_tts['pico2wave'] = False
-            print("Warning: pico2wave not found, voicever won't be generated using it.")
-        else:
-            voiceoverAvailable = True
-
-        # Check for espeak voiceover
-        if not exec_exists_in_path("espeak"):
-            Text2Speech.valid_tts['espeak'] = False
-            print("Warning: espeak not found, voicever won't be generated using it.")
-        else:
-            voiceoverAvailable = True
-
-        # Check for Russian RHVoice voiceover
-        if not exec_exists_in_path("RHVoice"):
-            Text2Speech.valid_tts['RHVoice'] = False
-            print("Warning: RHVoice not found, Russian voicever won't be generated.")
-        else:
-            voiceoverAvailable = True
-
-        # Return if we at least found one voiceover program.
-        # Otherwise this will result in silent voiceover for tracks and "Playlist N" for playlists.
-        return voiceoverAvailable
+        return False
 
     @staticmethod
     def text2speech(out_wav_path, text):
@@ -146,64 +120,14 @@ class Text2Speech(object):
         # ensure we deal with unicode later
         if not isinstance(text, str):
             text = str(text, 'utf-8')
-        lang = Text2Speech.guess_lang(text)
-        if lang == "ru-RU":
-            return Text2Speech.rhvoice(out_wav_path, text)
-        else:
-            if Text2Speech.pico2wave(out_wav_path, text):
-                return True
-            elif Text2Speech.espeak(out_wav_path, text):
-                return True
-            elif Text2Speech.say(out_wav_path, text):
-                return True
-            else:
-                return False
-
-    # guess-language seems like an overkill for now
-    @staticmethod
-    def guess_lang(unicodetext):
-        lang = 'en-GB'
-        if re.search("[А-Яа-я]", unicodetext) is not None:
-            lang = 'ru-RU'
-        return lang
+        return Text2Speech.text2wave(out_wav_path, text)
 
     @staticmethod
-    def pico2wave(out_wav_path, unicodetext):
+    def text2wave(out_wav_path, unicodetext):
         if not Text2Speech.valid_tts['pico2wave']:
             return False
-        subprocess.call(["pico2wave", "-l", "en-GB", "-w", out_wav_path, '--', unicodetext])
+        subprocess.call([__file__.replace("ipod-shuffle-4g.py", "")+"say", unicodetext, out_wav_path])
         return True
-
-    @staticmethod
-    def say(out_wav_path, unicodetext):
-        if not Text2Speech.valid_tts['say']:
-            return False
-        subprocess.call(["say", "-o", out_wav_path, '--data-format=LEI16', '--file-format=WAVE', '--', unicodetext])
-        return True
-
-    @staticmethod
-    def espeak(out_wav_path, unicodetext):
-        if not Text2Speech.valid_tts['espeak']:
-            return False
-        subprocess.call(["espeak", "-v", "english_rp", "-s", "150", "-w", out_wav_path, '--', unicodetext])
-        return True
-
-    @staticmethod
-    def rhvoice(out_wav_path, unicodetext):
-        if not Text2Speech.valid_tts['RHVoice']:
-            return False
-
-        tmp_file = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-        tmp_file.close()
-
-        proc = subprocess.Popen(["RHVoice", "--voice=Elena", "--variant=Russian", "--volume=100", "-o", tmp_file.name], stdin=subprocess.PIPE)
-        proc.communicate(input=unicodetext.encode('utf-8'))
-        # make a little bit louder to be comparable with pico2wave
-        subprocess.call(["sox", tmp_file.name, out_wav_path, "norm"])
-
-        os.remove(tmp_file.name)
-        return True
-
 
 class Record(object):
 
